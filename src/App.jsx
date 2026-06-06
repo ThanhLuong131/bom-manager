@@ -344,6 +344,39 @@ function UploadModal({ onClose, onSave, initial, userId }) {
   );
 }
 
+function DeleteModal({ rec, onCancel, onConfirm }) {
+  const [pass, setPass] = useState(""); const [err, setErr] = useState(""); const [loading, setLoading] = useState(false);
+  const submit = async () => {
+    if (pass !== "1234") { setErr("Mật khẩu không đúng"); return; }
+    setLoading(true); await onConfirm(); setLoading(false);
+  };
+  return (
+    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.55)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 200 }}>
+      <div style={{ width: 380, background: "var(--color-background-primary)", borderRadius: 16, border: "0.5px solid var(--color-border-tertiary)", overflow: "hidden" }}>
+        <div style={{ background: RED, padding: "1.25rem 1.5rem", display: "flex", alignItems: "center", gap: 10 }}>
+          <i className="ti ti-trash" style={{ fontSize: 20, color: "#fff" }} aria-hidden="true" />
+          <span style={{ fontWeight: 600, color: "#fff", fontSize: 15 }}>Xác nhận xóa</span>
+        </div>
+        <div style={{ padding: "1.25rem 1.5rem" }}>
+          <p style={{ fontSize: 13, marginBottom: 6 }}>Bạn đang xóa báo giá:</p>
+          <p style={{ fontWeight: 600, color: RED, marginBottom: 16, fontSize: 13 }}>{rec.part_number} — {rec.product_name?.slice(0, 40)}</p>
+          <label style={{ fontSize: 12, color: "var(--color-text-secondary)", display: "block", marginBottom: 6 }}>Nhập mật khẩu để xác nhận</label>
+          <input type="password" value={pass} onChange={e => { setPass(e.target.value); setErr(""); }} placeholder="••••" autoFocus
+            onKeyDown={e => e.key === "Enter" && submit()}
+            style={{ width: "100%", boxSizing: "border-box", marginBottom: 8, borderColor: err ? RED : undefined }} />
+          {err && <p style={{ color: RED, fontSize: 12, marginBottom: 8 }}>{err}</p>}
+          <div style={{ display: "flex", gap: 8, marginTop: 4 }}>
+            <button onClick={onCancel} style={{ flex: 1 }}>Hủy</button>
+            <button onClick={submit} disabled={loading} style={{ flex: 1, background: RED, color: "#fff", border: "none", borderRadius: 8, padding: "9px", cursor: "pointer", fontWeight: 500 }}>
+              {loading ? "Đang xóa..." : "Xóa"}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function App() {
   const [user, setUser] = useState(null);
   const [records, setRecords] = useState([]);
@@ -352,6 +385,7 @@ export default function App() {
   const [search, setSearch] = useState("");
   const [copied, setCopied] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState(null);
 
   useEffect(() => {
     if (user) { setLoading(true); apiGetRecords(user.id).then(res => { setRecords(res.records || []); setLoading(false); }); }
@@ -361,7 +395,7 @@ export default function App() {
     setRecords(r => editRec ? r.map(x => x.id === rec.id ? rec : x) : [rec, ...r]);
     setShowModal(false); setEditRec(null);
   };
-  const deleteRec = async id => { await apiDeleteRecord(id); setRecords(r => r.filter(x => x.id !== id)); };
+  const deleteRec = async () => { await apiDeleteRecord(deleteTarget.id); setRecords(r => r.filter(x => x.id !== deleteTarget.id)); setDeleteTarget(null); };
   const copyQuote = rec => {
     const usd = sellUSD(rec.bom_cost, rec.margin, rec.exchange_rate).toFixed(4);
     const text = `BÁO GIÁ - ${rec.date}\nSản phẩm: ${rec.product_name}\nMã P/N: ${rec.part_number}\nSelling Price: $${usd} USD\nQTY: ${rec.qty || ""}\nTerm: ${rec.term || ""}`;
@@ -374,6 +408,7 @@ export default function App() {
 
   return (
     <div style={{ minHeight: 500, background: "var(--color-background-tertiary)", paddingBottom: "2rem" }}>
+      {deleteTarget && <DeleteModal rec={deleteTarget} onCancel={() => setDeleteTarget(null)} onConfirm={deleteRec} />}
       {showModal && <UploadModal onClose={() => { setShowModal(false); setEditRec(null); }} onSave={saveRecord} initial={editRec} userId={user.id} />}
       <div style={{ background: BLUE, padding: "0.875rem 1.5rem", display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "1.5rem" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
@@ -427,7 +462,7 @@ export default function App() {
         ) : (
           <div style={{ background: "var(--color-background-primary)", border: "0.5px solid var(--color-border-tertiary)", borderRadius: 12, overflow: "hidden" }}>
             <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13, tableLayout: "fixed" }}>
-              <colgroup><col style={{ width: "13%" }} /><col style={{ width: "22%" }} /><col style={{ width: "10%" }} /><col style={{ width: "8%" }} /><col style={{ width: "12%" }} /><col style={{ width: "11%" }} /><col style={{ width: "9%" }} /><col style={{ width: "15%" }} /></colgroup>
+              <colgroup><col style={{ width: "12%" }} /><col style={{ width: "20%" }} /><col style={{ width: "10%" }} /><col style={{ width: "7%" }} /><col style={{ width: "11%" }} /><col style={{ width: "10%" }} /><col style={{ width: "8%" }} /><col style={{ width: "22%" }} /></colgroup>
               <thead>
                 <tr style={{ background: BLUE_LIGHT }}>
                   {["P/N", "Tên sản phẩm", "Cost (VND)", "Margin", "Selling VND", "Selling USD", "Ngày", "Thao tác"].map(h => (
@@ -446,11 +481,16 @@ export default function App() {
                     <td style={{ padding: "10px 12px" }}><span style={{ fontWeight: 500, color: "#fff", background: BLUE, borderRadius: 6, padding: "3px 8px", fontSize: 12 }}>{fmtUSD(sellUSD(r.bom_cost, r.margin, r.exchange_rate))}</span></td>
                     <td style={{ padding: "10px 12px", color: "var(--color-text-secondary)", fontSize: 12 }}>{r.date}</td>
                     <td style={{ padding: "8px 10px" }}>
-                      <div style={{ display: "flex", gap: 3 }}>
-                        <button onClick={() => genPDF(r)} title="Export PDF" style={{ padding: "4px 7px", fontSize: 11, color: RED, borderColor: RED }}><i className="ti ti-file-type-pdf" aria-hidden="true" /></button>
-                        <button onClick={() => copyQuote(r)} title="Copy báo giá" style={{ padding: "4px 7px", fontSize: 11, color: copied === r.id ? "#16a34a" : BLUE, borderColor: copied === r.id ? "#16a34a" : BLUE }}><i className={`ti ${copied === r.id ? "ti-check" : "ti-copy"}`} aria-hidden="true" /></button>
-                        <button onClick={() => { setEditRec(r); setShowModal(true); }} title="Sửa" style={{ padding: "4px 7px", fontSize: 11 }}><i className="ti ti-edit" aria-hidden="true" /></button>
-                        <button onClick={() => deleteRec(r.id)} title="Xóa" style={{ padding: "4px 7px", fontSize: 11, color: "var(--color-text-danger)" }}><i className="ti ti-trash" aria-hidden="true" /></button>
+                      <div style={{ display: "flex", gap: 5 }}>
+                        <button onClick={() => genPDF(r)} style={{ display: "flex", alignItems: "center", gap: 4, padding: "5px 10px", fontSize: 11, fontWeight: 600, color: "#fff", background: RED, border: "none", borderRadius: 6, cursor: "pointer", whiteSpace: "nowrap" }}>
+                          <i className="ti ti-download" aria-hidden="true" /> PDF
+                        </button>
+                        <button onClick={() => { setEditRec(r); setShowModal(true); }} style={{ display: "flex", alignItems: "center", gap: 4, padding: "5px 10px", fontSize: 11, fontWeight: 600, color: "#fff", background: BLUE, border: "none", borderRadius: 6, cursor: "pointer", whiteSpace: "nowrap" }}>
+                          <i className="ti ti-edit" aria-hidden="true" /> Edit
+                        </button>
+                        <button onClick={() => setDeleteTarget(r)} style={{ display: "flex", alignItems: "center", gap: 4, padding: "5px 10px", fontSize: 11, fontWeight: 600, color: RED, background: "#fff1f1", border: `1px solid ${RED}`, borderRadius: 6, cursor: "pointer", whiteSpace: "nowrap" }}>
+                          <i className="ti ti-trash" aria-hidden="true" /> Delete
+                        </button>
                       </div>
                     </td>
                   </tr>
