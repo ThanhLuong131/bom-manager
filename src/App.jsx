@@ -45,8 +45,15 @@ const sellVND = (cost, margin) => Math.round(parseFloat(cost||0) * parseFloat(ma
 const sellUSD = (cost, margin, rate) => rate > 0 ? sellVND(cost, margin) / parseFloat(rate||1) : 0;
 
 async function apiLogin(username, password) {
-  const res = await fetch("/api/login", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ username, password }) });
-  return res.json();
+  try {
+    const res = await fetch("/api/login", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ username, password }) });
+    if (!res.ok && res.headers.get("content-type")?.includes("text/html")) {
+      return { error: "Lỗi server — API không hoạt động (HTTP " + res.status + ")" };
+    }
+    return res.json();
+  } catch {
+    return { error: "Không kết nối được server. Kiểm tra lại mạng." };
+  }
 }
 async function apiGetRecords(userId) {
   const res = await fetch(`/api/records?user_id=${userId}`);

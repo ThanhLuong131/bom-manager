@@ -1,0 +1,8 @@
+name = "bom-manager"
+compatibility_date = "2024-01-01"
+pages_build_output_dir = "./dist"
+
+[[d1_databases]]
+binding = "bom_db"
+database_name = "bom-db"
+database_id = "b7e33c9b-b975-4556-aee4-aa201506468c"
